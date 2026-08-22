@@ -64,6 +64,13 @@ Scenario 2 Output Graph :
 ![Scen 2 Graph:](assets/result2.png)
 
 
+
+
+
+Currently we working on real life application for our first prototype:
+![CAD Preview](assets/prototype.png)
+
+
  
 
 
