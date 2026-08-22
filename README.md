@@ -37,13 +37,14 @@ The monolithic codebase has been refactored into a clean, ROS-inspired structure
 └── main.py                            # Main orchestration loop
 └── stl/                               # STL file for xml
 ```
+---
 There is our simulation output. We compare 2 scenario: 
 On first The robot successfully tracked the offline-generated Center of Mass trajectories on flat ground without external interference.Despite the LIPM assumption which neglects leg masses, the kinematic simulation displayed highly natural, stable heel-strike and swing-leg transients.
 
 
 <img width="800" height="425" alt="Scen_A-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/616be702-e658-4a58-8e95-aec3bd1930fb" />
 
-
+---
 Second scenario A lateral impact of 30 N was applied to the torso for 0.1 seconds during the walking cycle. The LQR immediately detected the drift.
 Capture Point Strategy: Instead of over-torquing the ankles, the controller commanded the swing leg to instantly expand its landing position toward the direction of the fall 
 
@@ -53,12 +54,12 @@ Capture Point Strategy: Instead of over-torquing the ankles, the controller comm
 
 
 
-
+---
 Scenario 1 Output Graph :
 ![Scen 1 Graph:](assets/result1.png)
 
 
-
+---
 
 Scenario 2 Output Graph :
 ![Scen 2 Graph:](assets/result2.png)
@@ -66,11 +67,27 @@ Scenario 2 Output Graph :
 
 
 
-
+---
 Currently we working on real life application for our first prototype:
 ![CAD Preview](assets/prototype.jpeg)
 
+## Installation & Quick Start
 
+You can easily set up and run this 12-DOF bipedal simulation on your local machine. The physics engine and control modules are entirely Python-based and do not require heavy ROS installations.
+
+### 1. Prerequisites
+Ensure you have **Python 3.8+** installed on your system. 
+
+### 2. Install Dependencies
+Clone this repository and install the required numerical computing and physics engine libraries using `pip`. Open your terminal and run:
+
+```bash
+# Clone the repository
+git clone [https://github.com/giraycevher/GO2B-Bipedal-Robot.git](https://github.com/giraycevher/GO2B-Bipedal-Robot.git)
+cd GO2B-Bipedal-Robot
+
+# Install required Python packages
+pip install mujoco numpy scipy matplotlib
  
 
 
