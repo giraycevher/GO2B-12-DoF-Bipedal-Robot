@@ -47,7 +47,7 @@ Capture Point Strategy: Instead of over-torquing the ankles, the controller comm
 
 
 Result Comparison:
-![Comparison Graph:](compare.png)
+![Comparison Graph:](assets/compare.png)
 
 
  
