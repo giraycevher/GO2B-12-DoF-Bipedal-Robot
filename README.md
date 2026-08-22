@@ -36,3 +36,26 @@ The monolithic codebase has been refactored into a clean, ROS-inspired structure
 ├── tools/build_model.py               # Utility to fix CAD-exported XML files
 └── main.py                            # Main orchestration loop
 └── stl/                               # STL file for xml
+```
+There is our simulation output. We compare 2 scenario: 
+On first The robot successfully tracked the offline-generated Center of Mass trajectories on flat ground without external interference.Despite the LIPM assumption which neglects leg masses, the kinematic simulation displayed highly natural, stable heel-strike and swing-leg transients.
+
+
+
+
+Second scenario A lateral impact of 30 N was applied to the torso for 0.1 seconds during the walking cycle. The LQR immediately detected the drift.
+Capture Point Strategy: Instead of over-torquing the ankles, the controller commanded the swing leg to instantly expand its landing position toward the direction of the fall 
+
+
+
+https://github.com/user-attachments/assets/ea6177c9-ddd9-4bf7-82a0-0cf5d50bcf1d
+
+
+
+Scenario 1 Output Graph :
+![Scen 1 Graph:](assets/result1.png)
+
+
+ 
+
+
