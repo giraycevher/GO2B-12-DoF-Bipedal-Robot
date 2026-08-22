@@ -3,7 +3,7 @@
 This repository contains the simulation and control architecture for a custom 12-Degree-of-Freedom (DOF) bipedal robot. The project is built in Python using MuJoCo for physics simulation and focuses on robust dynamic walking and balance recovery.
 
 The software architecture is highly modular and designed to run on low-budget, resource-constrained hardware like the Teensy 4.1 microcontroller. To achieve this, the heavy computational tasks are separated from real-time stabilization.
-
+![CAD Preview](assets/v2_robot.png)
 ## Academic Publication
 
 The methodologies, control algorithms, and mathematical models in this repository are based on our peer-reviewed conference paper:
