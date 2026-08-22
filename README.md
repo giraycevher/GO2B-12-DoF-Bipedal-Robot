@@ -53,7 +53,7 @@ https://github.com/user-attachments/assets/ea6177c9-ddd9-4bf7-82a0-0cf5d50bcf1d
 
 
 Scenario 1 Output Graph :
-![Scen 1 Graph:](assets/compare.png)
+![Scen 1 Graph:](assets/result1.png)
 
 
  
