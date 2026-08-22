@@ -41,6 +41,7 @@ There is our simulation output. We compare 2 scenario:
 On first The robot successfully tracked the offline-generated Center of Mass trajectories on flat ground without external interference.Despite the LIPM assumption which neglects leg masses, the kinematic simulation displayed highly natural, stable heel-strike and swing-leg transients.
 
 
+<img width="800" height="425" alt="Scen_A-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/616be702-e658-4a58-8e95-aec3bd1930fb" />
 
 
 Second scenario A lateral impact of 30 N was applied to the torso for 0.1 seconds during the walking cycle. The LQR immediately detected the drift.
@@ -54,7 +55,11 @@ https://github.com/user-attachments/assets/ea6177c9-ddd9-4bf7-82a0-0cf5d50bcf1d
 
 Scenario 1 Output Graph :
 ![Scen 1 Graph:](assets/result1.png)
-Scenario 1 Output Graph :
+
+
+
+
+Scenario 2 Output Graph :
 ![Scen 2 Graph:](assets/result2.png)
 
 
