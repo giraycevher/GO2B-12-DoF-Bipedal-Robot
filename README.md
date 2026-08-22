@@ -68,7 +68,7 @@ Scenario 2 Output Graph :
 
 
 Currently we working on real life application for our first prototype:
-![CAD Preview](assets/prototype.png)
+![CAD Preview](assets/prototype.jpeg)
 
 
  
