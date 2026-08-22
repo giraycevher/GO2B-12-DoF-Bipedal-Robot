@@ -10,7 +10,7 @@ The methodologies, control algorithms, and mathematical models in this repositor
 
 > **"Development of Model Predictive Controlled 12-DoF Bipedal Robot: A Two-Phase Control Architecture Tailored for Low-Budget Bipedal Systems"**  
 > *Presented at the 21st International Conference on Machine Design and Production (UMTIK 2026), Istanbul, Türkiye.*  
-> [Read the Full Paper Here](assets/UMTIK_2026_Bipedal_Robot.pdf)
+> [Read the Full Paper Here](assets/Development of Model Predictive Controlled 12-DoF Bipedal Robot.pdf)
 
 ## Key Features
 
