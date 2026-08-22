@@ -49,7 +49,8 @@ Capture Point Strategy: Instead of over-torquing the ankles, the controller comm
 
 
 
-https://github.com/user-attachments/assets/ea6177c9-ddd9-4bf7-82a0-0cf5d50bcf1d
+<img width="800" height="422" alt="Scen_B_real-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/777ee1dc-1aa6-4a46-839b-686c971681ad" />
+
 
 
 
