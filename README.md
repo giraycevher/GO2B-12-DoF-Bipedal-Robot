@@ -68,9 +68,25 @@ Scenario 2 Output Graph :
 
 
 ---
-Currently we working on real life application for our first prototype:
+### Hardware Prototyping in Progress
+
+This repository is not just a theoretical simulation; it is the software foundation for our physical 12-DOF bipedal robot prototype. 
+
+The control architecture is specifically designed to overcome the computational bottlenecks of low-budget edge hardware. By running the heavy ZMP trajectory generation offline and utilizing a matrix-free Analytical IK solver, we ensure the real-time stabilization (LQR) can run seamlessly on microcontrollers.
+
+**Current Hardware Stack:**
+* **Processing:** Teensy 4.1 Microcontroller (handling the 500 Hz online LQR stabilization loop).
+* **Actuation:** ST Series (e.g., ST 3025) Serial Bus Servomotors for high-torque, precise joint control.
+* **State Estimation:** MPU6050 IMU for real-time Center of Mass (CoM) orientation and drift tracking.
+* **ZMP & Contact Sensing:** Custom-made foot pads equipped with FSR (Force Sensing Resistor) arrays to actively detect ground reaction forces and estimate the real-time Zero-Moment Point (ZMP).
+* **Mechanical Design:** Custom 3D-printed/machined brackets optimized to match the MuJoCo simulation's mass and inertia matrices.
+
+Our next major milestone is achieving full "Sim-to-Real" transfer, utilizing the FSR feedback to deploy the push-recovery algorithms directly onto this physical platform.
 ![CAD Preview](assets/prototype.jpeg)
 
+
+
+---
 ## Installation & Quick Start
 
 You can easily set up and run this 12-DOF bipedal simulation on your local machine. The physics engine and control modules are entirely Python-based and do not require heavy ROS installations.
