@@ -1,59 +1,37 @@
-# 12-DOF Bipedal Walking — Modular Architecture
+# 12-DOF Bipedal Robot Simulation with ZMP & LQR Control
 
-```
-config/parameters.py            RobotConfig, GaitConfig, DCMConfig, PushConfig,
-                                AnkleFeedbackConfig, SimConfig   (tum sabitler)
-kinematics/leg_ik.py            LegKinematics                    (Kajita IK + FK)
-controllers/preview_controller.py  ZMPPreviewController          (LIPM + DARE)
-controllers/push_recovery.py    DCMRecovery, AnkleStabilizer     (capture point)
-planners/step_planner.py        StepPlanner                      (ayak izi + salinim + ZMP ref)
-utils/data_logger.py            TelemetryLogger                  (log + ozet + grafik)
-sim/mujoco_interface.py         MujocoRobot, VideoRecorder       (TEK mujoco bagimliligi)
-tools/build_model.py            robot_final.xml -> robot_walk.xml
-main.py                         orkestrasyon
-```
+This repository contains the simulation and control architecture for a custom 12-Degree-of-Freedom (DOF) bipedal robot. The project is built in Python using MuJoCo for physics simulation and focuses on robust dynamic walking and balance recovery.
 
-`config`, `kinematics`, `controllers`, `planners`, `utils` **mujoco'ya bagimli
-degildir** — saf numpy/scipy, mujoco kurulu olmadan test edilebilir.
+The software architecture is highly modular and designed to run on low-budget, resource-constrained hardware like the Teensy 4.1 microcontroller. To achieve this, the heavy computational tasks are separated from real-time stabilization.
 
-## Kullanim
+## Academic Publication
 
-```bash
-python tools/build_model.py --in robot_final.xml
-python main.py
-python main.py --headless --push 15
-python main.py --record yuruyus.mp4 --headless --width 1920 --height 1080
-python main.py --push 15 --push-viz ball --no-dcm
-```
+The methodologies, control algorithms, and mathematical models in this repository are based on our peer-reviewed conference paper:
 
-## Veri akisi (her dt_mpc = 10 ms)
+> **"Development of Model Predictive Controlled 12-DoF Bipedal Robot: A Two-Phase Control Architecture Tailored for Low-Budget Bipedal Systems"**  
+> *Presented at the 21st International Conference on Machine Design and Production (UMTIK 2026), Istanbul, Türkiye.*  
+> [Read the Full Paper Here](assets/UMTIK_2026_Bipedal_Robot.pdf)
 
-```
-StepPlanner.zmp_ref/preview_window
-        |
-        v
-ZMPPreviewController.update()  x2 (yanal, ileri)  ->  planlanan CoM
-        |
-MujocoRobot.com_state()  ->  olculen CoM
-        |
-        v
-DCMRecovery.compute()  ->  (d_lat, d_fwd)
-        |
-        v
-StepPlanner.update(k, correction)  ->  FootTargets
-        |
-        v
-LegKinematics.solve()  x2  ->  12 eklem acisi
-        |
-        v
-MujocoRobot.send() -> step()
-```
+## Key Features
 
-## Dogrulama (monolitik surumle karsilastirma)
+* **Two-Phase Hierarchical Control:** 
+  * **Offline:** Uses ZMP (Zero-Moment Point) Preview Control with a receding-horizon approach to generate stable walking trajectories.
+  * **Online:** Uses an ultra-fast LQR (Linear Quadratic Regulator) for real-time balance correction.
+* **DCM (Capture Point) Push Recovery:** The robot can withstand external impacts (e.g., a 30N push). It instantly calculates the state error of the Center of Mass (CoM) and actively changes its foot landing positions to maintain balance.
+* **Analytical Inverse Kinematics (IK):** Instead of using computationally heavy Jacobian matrix solvers, this project uses a purely geometric, matrix-free IK solver tailored for 6-DOF legs.
+* **Hardware-Ready Modular Design:** The physics engine (MuJoCo) is completely isolated from the control algorithms. You can run the planners and controllers on actual hardware without needing MuJoCo.
 
-```
-IK eklem acisi farki        0.000e+00 rad   (130 hedef)
-ZMP referans dizisi farki   0.000e+00
-salinim lift profili farki  0.000e+00
-preview kazanclari          Ks, Kx, F birebir ayni
-```
+## Modular Architecture
+
+The monolithic codebase has been refactored into a clean, ROS-inspired structure:
+
+```text
+├── config/parameters.py               # All constants (Gains, Limits, Sim params)
+├── kinematics/leg_ik.py               # Analytical Inverse & Forward Kinematics
+├── controllers/preview_controller.py  # LIPM and Discrete Algebraic Riccati Equation (DARE)
+├── controllers/push_recovery.py       # DCM Capture Point logic and LQR stabilization
+├── planners/step_planner.py           # Footstep trajectory and swing leg generation
+├── utils/data_logger.py               # Real-time telemetry, logging, and plotting
+├── sim/mujoco_interface.py            # The ONLY module dependent on MuJoCo
+├── tools/build_model.py               # Utility to fix CAD-exported XML files
+└── main.py                            # Main orchestration loop
