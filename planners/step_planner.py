@@ -1,11 +1,5 @@
-"""Ayak izi zamanlamasi, sinuzoidal salinim yorungesi, ZMP referansi.
-
-Push recovery BURADA DEGIL -- controllers/push_recovery.py'de. Planlayici
-sadece nominal plani uretir; duzeltme disaridan update()'e verilir.
-"""
-
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import numpy as np
@@ -29,7 +23,6 @@ class FootTargets:
 
 
 class StepPlanner:
-    """Ayak izlerini, ZMP referansini ve salinim yorungesini uretir."""
 
     def __init__(self, gait: GaitConfig):
         self.gait = gait
@@ -47,7 +40,6 @@ class StepPlanner:
         self._start_b = self.foot_b.copy()
         self._swing = None
 
-    # ------------------------------------------------------------- ZMP
     def _build_zmp_reference(self):
         g = self.gait
         self.p_ref_fwd = np.zeros(REF_LEN)
@@ -60,11 +52,9 @@ class StepPlanner:
                 self.p_ref_fwd[s:e] = self.footsteps[i, 0]
                 self.p_ref_lat[s:e] = self.footsteps[i, 1]
 
-        # baslangic beklemesi: iki ayagin ortasi
         self.p_ref_fwd[:g.initial_delay] = 0.0
         self.p_ref_lat[:g.initial_delay] = 0.0
 
-        # adimlar bitince cift destege gec, tek ayakta donma
         stop = g.stop_tick
         if stop < REF_LEN:
             self.p_ref_fwd[stop:] = self.footsteps[-1, 0]
@@ -78,9 +68,7 @@ class StepPlanner:
         idx = np.minimum(k + np.arange(self.gait.n_preview), REF_LEN - 1)
         return self.p_ref_lat[idx], self.p_ref_fwd[idx]
 
-    # --------------------------------------------------------- salinim
     def nominal_swing_target(self, k: int) -> Tuple[float, float, bool]:
-        """(hedef_fwd, hedef_lat, bacak_A_mi) -- nominal, duzeltmesiz."""
         g = self.gait
         if k < g.initial_delay:
             return 0.0, 0.0, False
@@ -95,10 +83,6 @@ class StepPlanner:
         return ((k - g.initial_delay) % g.step_time) / float(g.step_time)
 
     def update(self, k: int, correction: Tuple[float, float] = (0.0, 0.0)) -> FootTargets:
-        """Bir dt_mpc ilerlet ve guncel ayak hedeflerini dondur.
-
-        correction : (d_lat, d_fwd) -- DCMRecovery ciktisi
-        """
         g = self.gait
 
         if k >= g.stop_tick:
@@ -119,17 +103,17 @@ class StepPlanner:
             self._start_b = self.foot_b.copy()
             self._swing = "A" if is_a else "B"
 
-        faz = (phase_i / float(g.step_time)) * math.pi
-        t_lerp = (1.0 - math.cos(faz)) / 2.0
+        phi = (phase_i / float(g.step_time)) * math.pi
+        lerp = (1.0 - math.cos(phi)) / 2.0
         target = np.array([tgt_lat, tgt_fwd])
 
         if self._swing == "A":
-            self.foot_a = self._start_a + (target - self._start_a) * t_lerp
-            self.lift_a = g.step_height * math.sin(faz)
+            self.foot_a = self._start_a + (target - self._start_a) * lerp
+            self.lift_a = g.step_height * math.sin(phi)
             self.lift_b = 0.0
         elif self._swing == "B":
-            self.foot_b = self._start_b + (target - self._start_b) * t_lerp
-            self.lift_b = g.step_height * math.sin(faz)
+            self.foot_b = self._start_b + (target - self._start_b) * lerp
+            self.lift_b = g.step_height * math.sin(phi)
             self.lift_a = 0.0
 
         return self._targets(k, phase_i / float(g.step_time))
@@ -142,5 +126,4 @@ class StepPlanner:
         )
 
     def current_targets(self, k: int) -> FootTargets:
-        """MPC tiki disindaki karelerde son hedefleri tekrar dondurur."""
         return self._targets(k, self.swing_phase(k))

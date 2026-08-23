@@ -1,10 +1,3 @@
-"""MuJoCo donanim-soyutlama katmani.
-
-Projedeki TEK MuJoCo bagimliligi burasidir. config / kinematics /
-controllers / planners / utils saf numpy-scipy'dir ve mujoco kurulu
-olmadan test edilebilir.
-"""
-
 import sys
 from typing import Optional, Tuple
 
@@ -13,13 +6,13 @@ import numpy as np
 try:
     import mujoco
 except ImportError:
-    sys.exit("mujoco kurulu degil:  pip install mujoco")
+    sys.exit("mujoco is not installed:  pip install mujoco")
 
 from config.parameters import RobotConfig
+from kinematics.leg_ik import quat_to_mat
 
 
 class MujocoRobot:
-    """Model yukleme, indeks eslemesi, sensor okuma, komut yazma."""
 
     def __init__(self, cfg: RobotConfig):
         self.cfg = cfg
@@ -28,18 +21,18 @@ class MujocoRobot:
 
         self.torso_id = self._body_id(cfg.torso_body)
         if self.torso_id < 0:
-            sys.exit(f"HATA: '{cfg.torso_body}' govdesi yok.")
+            sys.exit(f"ERROR: body '{cfg.torso_body}' not found.")
 
         if self.model.nu != len(cfg.joint_order):
-            sys.exit(f"HATA: {self.model.nu} aktuator var, "
-                     f"{len(cfg.joint_order)} olmali. fix_robot_xml.py calistir.")
+            sys.exit(f"ERROR: model has {self.model.nu} actuators, expected "
+                     f"{len(cfg.joint_order)}. Run tools/build_model.py.")
 
         self.qadr, self.ctrl_idx = [], []
         for name in cfg.joint_order:
             jid = self._id(mujoco.mjtObj.mjOBJ_JOINT, name)
             aid = self._id(mujoco.mjtObj.mjOBJ_ACTUATOR, name)
             if jid < 0 or aid < 0:
-                sys.exit(f"HATA: '{name}' eklemi/aktuatoru yok.")
+                sys.exit(f"ERROR: joint/actuator '{name}' not found.")
             self.qadr.append(int(self.model.jnt_qposadr[jid]))
             self.ctrl_idx.append(int(aid))
         self.qadr = np.array(self.qadr)
@@ -57,17 +50,15 @@ class MujocoRobot:
 
         self.robot_mass = float(self.model.body_subtreemass[self.torso_id])
         if self.robot_mass < cfg.min_robot_mass:
-            sys.exit("HATA: robot kutlesi ~0. Sahte inertial'lar duruyor, "
-                     "fix_robot_xml.py calistir.")
+            sys.exit("ERROR: robot mass is ~0. Placeholder inertials still present, "
+                     "run tools/build_model.py.")
 
-    # ------------------------------------------------------------ id'ler
     def _id(self, objtype, name) -> int:
         return mujoco.mj_name2id(self.model, objtype, name)
 
     def _body_id(self, name) -> int:
         return self._id(mujoco.mjtObj.mjOBJ_BODY, name)
 
-    # ------------------------------------------------------------ durum
     @property
     def time(self) -> float:
         return float(self.data.time)
@@ -82,7 +73,6 @@ class MujocoRobot:
 
     @property
     def base_rotation(self) -> np.ndarray:
-        from kinematics.leg_ik import quat_to_mat
         return quat_to_mat(self.data.qpos[3:7])
 
     @property
@@ -94,7 +84,6 @@ class MujocoRobot:
         return int(getattr(self.data, "ncon", -1))
 
     def com_state(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Robotun (torso alt agaci) CoM konumu ve hizi."""
         mujoco.mj_subtreeVel(self.model, self.data)
         return (self.data.subtree_com[self.torso_id].copy(),
                 self.data.subtree_linvel[self.torso_id].copy())
@@ -103,7 +92,6 @@ class MujocoRobot:
         return bool(np.all(np.isfinite(self.data.qpos))
                     and np.all(np.isfinite(self.data.qvel)))
 
-    # ------------------------------------------------------------- zemin
     def lowest_foot_point(self) -> float:
         zmin = np.inf
         for gi in range(self.model.ngeom):
@@ -126,7 +114,6 @@ class MujocoRobot:
         return zmin
 
     def measure_ankle_height(self) -> float:
-        """Ayak bilegi merkezinin, taban duz yerdeyken yerden yuksekligi."""
         self.data.qpos[:] = 0.0
         self.data.qpos[2] = 0.30
         self.data.qpos[3] = 1.0
@@ -147,7 +134,6 @@ class MujocoRobot:
         self.data.qpos[2] -= self.lowest_foot_point()
         self.forward()
 
-    # ------------------------------------------------------------ komut
     def send(self, q_a, q_b):
         self.data.ctrl[self.ctrl_idx[:6]] = q_a
         self.data.ctrl[self.ctrl_idx[6:]] = q_b
@@ -158,7 +144,6 @@ class MujocoRobot:
     def step(self):
         mujoco.mj_step(self.model, self.data)
 
-    # -------------------------------------------------------------- itme
     def clear_push(self):
         self.data.xfrc_applied[self.torso_id, :] = 0.0
 
@@ -175,8 +160,8 @@ class MujocoRobot:
     def arrow_points(self, axis: str, force: float):
         p = self.data.xpos[self.torso_id].copy()
         d = self.push_direction(axis, force)
-        L = 0.10 + 0.010 * min(abs(force), 40.0)
-        return p - d * L, p + d * 0.05, d
+        length = 0.10 + 0.010 * min(abs(force), 40.0)
+        return p - d * length, p + d * 0.05, d
 
     def launch_projectile(self, axis: str, force: float, duration: float,
                           distance: float = 0.60) -> Optional[float]:
@@ -192,9 +177,6 @@ class MujocoRobot:
         return v
 
 
-# ===========================================================================
-#  GORSELLESTIRME
-# ===========================================================================
 def add_arrow(scn, p_from, p_to, width, rgba):
     if scn is None or scn.ngeom >= scn.maxgeom:
         return
@@ -213,8 +195,6 @@ def add_arrow(scn, p_from, p_to, width, rgba):
 
 def draw_push(scn, robot: MujocoRobot, axis: str, force: float,
               alpha: float, reset: bool = True):
-    """reset=True: viewer.user_scn (her karede sifirlanir).
-    reset=False: renderer.scene (update_scene robotu doldurdu, sifirlama)."""
     if scn is None:
         return
     if reset:
@@ -232,15 +212,14 @@ def draw_push(scn, robot: MujocoRobot, axis: str, force: float,
 
 
 class VideoRecorder:
-    """Offscreen render -> mp4. imageio (ffmpeg) yoksa OpenCV'ye duser."""
 
     def __init__(self, model, path: str, fps: int, width: int, height: int):
         self.path, self.fps = path, fps
         try:
             self.renderer = mujoco.Renderer(model, height=height, width=width)
         except Exception as e:
-            sys.exit(f"Renderer acilamadi: {e}\nCozunurluk XML'deki "
-                     f"offwidth/offheight'i asmis olabilir.")
+            sys.exit(f"Renderer failed: {e}\nResolution may exceed offwidth/offheight "
+                     f"declared in the XML.")
         self.kind, self.writer = self._open(path, fps)
 
     @staticmethod
@@ -254,7 +233,7 @@ class VideoRecorder:
                 import cv2
                 return "cv2", [cv2, None]
             except Exception as e2:
-                sys.exit("Video yazmak icin:  pip install imageio imageio-ffmpeg\n"
+                sys.exit("Video writing needs:  pip install imageio imageio-ffmpeg\n"
                          f"  imageio: {e1}\n  opencv : {e2}")
 
     @property

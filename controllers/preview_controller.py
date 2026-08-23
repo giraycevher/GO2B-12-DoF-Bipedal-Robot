@@ -1,5 +1,3 @@
-"""Katayama ZMP preview control (LIPM + DARE). Tek eksen."""
-
 import numpy as np
 import scipy.linalg as linalg
 
@@ -7,11 +5,6 @@ GRAVITY = 9.81
 
 
 class ZMPPreviewController:
-    """Bir eksen icin preview kontrolcu.
-
-    Kazanclar __init__'te DARE ile bir kez cozulur; update() her dt_mpc'de
-    bir cagrilir ve guncel LIPM durumunu [pos, vel, acc] dondurur.
-    """
 
     def __init__(self, dt: float, z_c: float, n_preview: int,
                  q_zmp: float = 1e6, r_jerk: float = 1.0):
@@ -74,11 +67,6 @@ class ZMPPreviewController:
         return self.state[0] + self.state[1] / w
 
     def update(self, zmp_ref_now: float, zmp_ref_preview: np.ndarray) -> np.ndarray:
-        """Bir dt_mpc ilerlet.
-
-        zmp_ref_now      : su anki ZMP referansi
-        zmp_ref_preview  : onumuzdeki n_preview adimin ZMP referansi
-        """
         self.error_sum += self.zmp - zmp_ref_now
         u = (-self.Ks * self.error_sum
              - float(np.dot(self.Kx, self.state))

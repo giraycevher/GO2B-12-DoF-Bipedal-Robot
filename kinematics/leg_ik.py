@@ -1,5 +1,3 @@
-"""Kajita analitik bacak IK'si + ileri kinematik. Sadece numpy."""
-
 import math
 from typing import Optional, Tuple
 
@@ -36,8 +34,7 @@ def quat_to_mat(q) -> np.ndarray:
     ])
 
 
-def ik_leg_kajita(body_p, body_R, D, a_leg, b_leg, foot_p, foot_R):
-    """Kajita, Introduction to Humanoid Robotics -- analitik 6-DOF bacak IK'si."""
+def ik_leg_kajita(body_p, body_R, D, a_leg, b_leg, foot_p, foot_R) -> np.ndarray:
     hip_offset = body_R @ np.array([0.0, D, 0.0])
     r = foot_R.T @ (body_p + hip_offset - foot_p)
     c_len = np.linalg.norm(r)
@@ -63,14 +60,7 @@ def ik_leg_kajita(body_p, body_R, D, a_leg, b_leg, foot_p, foot_R):
 
 
 class LegKinematics:
-    """Bacak zinciri: ileri kinematik, ters kinematik, opsiyonel DLS cila.
 
-    Konumlar GOVDE (torso) cercevesinde, model eksenlerinde:
-    X = yanal, Y = ileri yonun tersi, Z = yukari.
-    IK hedefi ayak bilegi EKSEN KESISIMIDIR, ayak govdesinin orijini degil.
-    """
-
-    # (yerel pos, yerel quat) -- her eklem kendi cercevesinde +Z etrafinda doner
     CHAIN = (
         ((-0.0804341, 0.0679133, -0.000988717), (1.0, 0.0, 0.0, 0.0)),
         ((0.0, 0.0240365, -0.0492), (0.5, 0.5, 0.5, -0.5)),
@@ -87,7 +77,6 @@ class LegKinematics:
         self._local_p = [np.array(p) for p, _ in self.CHAIN]
         self._local_r = [quat_to_mat(q) for _, q in self.CHAIN]
 
-    # ---------------------------------------------------------------- FK
     def forward(self, q, left: bool = True):
         p = np.zeros(3)
         R = np.eye(3)
@@ -107,7 +96,6 @@ class LegKinematics:
         p, R, _, _ = self.forward(q, left)
         return p + R @ self.cfg.ankle_center_in_foot, R
 
-    # ---------------------------------------------------------------- IK
     def solve(self, foot_p, left: bool = True, foot_R=None,
               clamp: bool = True, refine: bool = False) -> np.ndarray:
         c = self.cfg
@@ -154,6 +142,5 @@ class LegKinematics:
             q = q + dq
         return q
 
-    # ------------------------------------------------------------ yardim
     def reach_ratio(self, leg_drop: float) -> float:
         return leg_drop / self.cfg.max_reach

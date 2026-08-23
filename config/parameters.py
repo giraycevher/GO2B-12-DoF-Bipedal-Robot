@@ -1,5 +1,3 @@
-"""Tum sabitler. Baska hicbir modulde magic number yok."""
-
 from dataclasses import dataclass, field
 from typing import Dict, Tuple
 
@@ -8,8 +6,6 @@ import numpy as np
 
 @dataclass
 class RobotConfig:
-    """robot_walk.xml'den olculen gecerli geometri ve eklem tanimlari."""
-
     xml_path: str = "robot_walk.xml"
 
     torso_body: str = "torso"
@@ -34,13 +30,11 @@ class RobotConfig:
     ankle_center_in_foot: np.ndarray = field(
         default_factory=lambda: np.array([0.000007, 0.0, -0.024512]))
 
-    # q=0'da ayak govdesinin govde cercevesindeki yonelimi
     r_foot_level: np.ndarray = field(
         default_factory=lambda: np.array([[0.0, 1.0, 0.0],
                                           [0.0, 0.0, 1.0],
                                           [1.0, 0.0, 0.0]]))
 
-    # Kajita [q2..q7] -> model eklem yonleri
     sign_map: np.ndarray = field(
         default_factory=lambda: np.array([1.0, 1.0, -1.0, 1.0, -1.0, -1.0]))
 
@@ -58,7 +52,6 @@ class RobotConfig:
         "ankle_roll": (-0.80, 0.80),
     })
 
-    # (kp, kv, forcerange) -- fix_robot_xml.py bunlari XML'e yazar
     actuator_gains: Dict[str, Tuple[float, float, float]] = field(default_factory=lambda: {
         "hip_yaw": (80.0, 4.0, 8.0),
         "hip_roll": (150.0, 6.0, 12.0),
@@ -77,13 +70,11 @@ class RobotConfig:
             self.hip_center_left[1],
             self.hip_center_left[2],
         ])
-        # Kajita'nin Body_p'si: Body_p + [0, D, 0] = kalca merkezi
         self.body_ref_offset = np.array([self.mirror_x,
                                          self.hip_center_left[1],
                                          self.hip_center_left[2]])
         self.max_reach = self.a_leg + self.b_leg
 
-        # model (X yanal, Y ileri=-Y, Z yukari) -> Kajita IK (x ileri, y yanal)
         self.m2i = np.array([[0.0, -1.0, 0.0],
                              [1.0, 0.0, 0.0],
                              [0.0, 0.0, 1.0]])
@@ -150,8 +141,8 @@ class PushConfig:
     time: float = 6.0
     duration: float = 0.1
     force: float = 0.0
-    axis: str = "lat"          # "lat" | "fwd"
-    viz: str = "arrow"         # "arrow" | "ball" | "none"
+    axis: str = "lat"
+    viz: str = "arrow"
     arrow_hold: float = 0.6
 
 
@@ -180,6 +171,8 @@ class SimConfig:
     report_period: float = 1.0
     fall_height: float = 0.08
     max_ik_failures: int = 3
+    refine_ik: bool = False
+    plot_enabled: bool = True
 
     robot: RobotConfig = field(default_factory=RobotConfig)
     gait: GaitConfig = field(default_factory=GaitConfig)

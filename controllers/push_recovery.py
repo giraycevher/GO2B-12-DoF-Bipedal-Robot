@@ -1,11 +1,9 @@
-"""DCM (capture point) tabanli ayak yerlesim geri beslemesi."""
-
 import math
 from dataclasses import dataclass
 
 import numpy as np
 
-from config.parameters import DCMConfig, RobotConfig
+from config.parameters import AnkleFeedbackConfig, DCMConfig, RobotConfig
 
 GRAVITY = 9.81
 
@@ -23,13 +21,6 @@ class RecoveryOutput:
 
 
 class DCMRecovery:
-    """Olculen CoM'dan ayak yerlesim duzeltmesi uretir.
-
-        xi = c + c_dot / omega,   omega = sqrt(g / z_com)
-        d  = clip(K * (xi_olculen - xi_planlanan))
-
-    MuJoCo'ya bagimli degildir; olculen CoM disaridan verilir.
-    """
 
     def __init__(self, cfg: DCMConfig, robot: RobotConfig):
         self.cfg = cfg
@@ -45,9 +36,6 @@ class DCMRecovery:
 
     def compute(self, com_pos, com_vel, plan_lat, plan_fwd,
                 swing_phase: float = 0.0) -> RecoveryOutput:
-        """plan_lat / plan_fwd : preview kontrolcunun (konum, hiz) ikilileri
-        swing_phase          : 0..1, inise dogru duzeltmeyi soldurmak icin
-        """
         if not self.cfg.enabled or self.cfg.gain <= 0.0:
             return RecoveryOutput()
 
@@ -73,9 +61,8 @@ class DCMRecovery:
 
 
 class AnkleStabilizer:
-    """Govde egiminden ayak bilegi duzeltmesi. Isareti dogrulanmadi."""
 
-    def __init__(self, cfg):
+    def __init__(self, cfg: AnkleFeedbackConfig):
         self.cfg = cfg
 
     def compute(self, base_R, ang_vel):
