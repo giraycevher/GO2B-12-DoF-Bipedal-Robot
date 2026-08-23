@@ -35,7 +35,7 @@ The monolithic codebase has been refactored into a clean, ROS-inspired structure
 ├── sim/mujoco_interface.py            # The ONLY module dependent on MuJoCo
 ├── tools/build_model.py               # Utility to fix CAD-exported XML files
 └── main.py                            # Main orchestration loop
-└── stl/                               # STL file for xml
+└── assets/                            # STL file for xml and media of GO2B
 ```
 ---
 There is our simulation output. We compare 2 scenario: 
