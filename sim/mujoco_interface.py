@@ -123,9 +123,13 @@ class MujocoRobot:
         return ank_z - zmin
 
     def set_pose(self, torso_pos, q_a, q_b):
-        self.data.qpos[:] = 0.0
+        # Start from the model's default qpos (model.qpos0), not all-zero:
+        # zeroing the whole array would also teleport any other free body
+        # (e.g. the parked push_ball, defined at pos="8 8 0.03" in the XML)
+        # to the world origin, dropping it inside the robot at t=0.
+        self.data.qpos[:] = self.model.qpos0
         self.data.qpos[0:3] = torso_pos
-        self.data.qpos[3] = 1.0
+        self.data.qpos[3:7] = [1.0, 0.0, 0.0, 0.0]
         self.data.qpos[self.qadr[0]:self.qadr[0] + 6] = q_a
         self.data.qpos[self.qadr[6]:self.qadr[6] + 6] = q_b
         self.forward()
