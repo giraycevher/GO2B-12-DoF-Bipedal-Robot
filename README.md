@@ -1,109 +1,143 @@
-# 12-DOF Bipedal Robot Simulation with ZMP & LQR Control
+# GO2B: 12-DOF Bipedal Robot Simulation with ZMP Preview Control, DCM Push Recovery & LQR
 
-This repository contains the simulation and control architecture for a custom 12-Degree-of-Freedom (DOF) bipedal robot. The project is built in Python using MuJoCo for physics simulation and focuses on robust dynamic walking and balance recovery.
+This repository contains the simulation and control software for **GO2B**, a custom 12-degree-of-freedom (DOF) bipedal robot. It is written in Python and uses [MuJoCo](https://mujoco.org/) for physics simulation. The project focuses on dynamic walking and push recovery.
 
-The software architecture is highly modular and designed to run on low-budget, resource-constrained hardware like the Teensy 4.1 microcontroller. To achieve this, the heavy computational tasks are separated from real-time stabilization.
-![CAD Preview](assets/v2_robot.png)
+The software is modular and designed for low-budget, resource-constrained hardware such as the Teensy 4.1 microcontroller: the heavy computation (ZMP trajectory generation) is separated from the real-time stabilization loop.
+
+![GO2B robot](assets/v2_robot.png)
+
 ## Academic Publication
 
-The methodologies, control algorithms, and mathematical models in this repository are based on our peer-reviewed conference paper:
+The methods in this repository are based on our conference paper:
 
-> **"Development of Model Predictive Controlled 12-DoF Bipedal Robot: A Two-Phase Control Architecture Tailored for Low-Budget Bipedal Systems"**  
-> *Presented at the 21st International Conference on Machine Design and Production (UMTIK 2026), Istanbul, Türkiye.*  
-> [Read the Full Paper Here](https://github.com/giraycevher/GO2B-Bipedal-Robot/blob/a86be1cf53217b836f31226f492656ad2d836d5f/assets/Development_of_Model_Predictive_Controlled_12-DoF_Bipedal_Robot.pdf)
+> Ünver, H. Ö., Lotfi, B., Eser, G. C., Ecevit, O. (2026). **"Development of Model Predictive Controlled 12-DoF Bipedal Robot: A Two-Phase Control Architecture Tailored for Low-Budget Bipedal Systems."**
+> *21st International Conference on Machine Design and Production (UMTIK 2026), Istanbul, Türkiye.*
+> [Read the paper (PDF)](assets/Development_of_Model_Predictive_Controlled_12-DoF_Bipedal_Robot.pdf)
 
 ## Key Features
 
-* **Two-Phase Hierarchical Control:** 
-  * **Offline:** Uses ZMP (Zero-Moment Point) Preview Control with a receding-horizon approach to generate stable walking trajectories.
-  * **Online:** Uses an ultra-fast LQR (Linear Quadratic Regulator) for real-time balance correction.
-* **DCM (Capture Point) Push Recovery:** The robot can withstand external impacts (e.g., a 30N push). It instantly calculates the state error of the Center of Mass (CoM) and actively changes its foot landing positions to maintain balance.
-* **Analytical Inverse Kinematics (IK):** Instead of using computationally heavy Jacobian matrix solvers, this project uses a purely geometric, matrix-free IK solver tailored for 6-DOF legs.
-* **Hardware-Ready Modular Design:** The physics engine (MuJoCo) is completely isolated from the control algorithms. You can run the planners and controllers on actual hardware without needing MuJoCo.
+- **Two-phase hierarchical control**
+  - **Offline:** ZMP (Zero-Moment Point) preview control (LIPM + discrete algebraic Riccati equation) with a receding horizon generates stable walking trajectories.
+  - **Online:** a fast LQR-based stabilizer corrects balance in real time.
+- **DCM (Capture Point) push recovery:** the robot withstands external pushes (a 30 N lateral push in our tests). It computes the divergent component of motion (DCM) error and adjusts the foot landing position to keep its balance. An optional torso-tilt to ankle feedback is also available.
+- **Analytical inverse kinematics:** a geometric, matrix-free solver for 6-DOF legs instead of a Jacobian-based solver. An optional damped-least-squares refinement is available with `--refine-ik`.
+- **Modular design:** controllers, planner and kinematics are separate packages. By design, only `sim/mujoco_interface.py` (plus the viewer and logging glue in `main.py`) touches MuJoCo.
 
-## Modular Architecture
+## Repository Structure
 
-The monolithic codebase has been refactored into a clean, ROS-inspired structure:
-
-```text
-├── config/parameters.py               # All constants (Gains, Limits, Sim params)
-├── kinematics/leg_ik.py               # Analytical Inverse & Forward Kinematics
-├── controllers/preview_controller.py  # LIPM and Discrete Algebraic Riccati Equation (DARE)
-├── controllers/push_recovery.py       # DCM Capture Point logic and LQR stabilization
-├── planners/step_planner.py           # Footstep trajectory and swing leg generation
-├── utils/data_logger.py               # Real-time telemetry, logging, and plotting
-├── sim/mujoco_interface.py            # The ONLY module dependent on MuJoCo
-├── tools/build_model.py               # Utility to fix CAD-exported XML files
-└── main.py                            # Main orchestration loop
-└── assets/                            # STL file for xml and media of GO2B
 ```
----
-There is our simulation output. We compare 2 scenario: 
-On first The robot successfully tracked the offline-generated Center of Mass trajectories on flat ground without external interference.Despite the LIPM assumption which neglects leg masses, the kinematic simulation displayed highly natural, stable heel-strike and swing-leg transients.
+├── main.py                            # Main orchestration loop and command-line interface
+├── requirements.txt                   # Python dependencies
+├── robot_final.xml, robot_walk.xml    # MuJoCo robot models
+├── config/parameters.py               # All constants (gains, limits, simulation parameters)
+├── kinematics/leg_ik.py               # Analytical inverse and forward kinematics
+├── controllers/preview_controller.py  # LIPM and discrete algebraic Riccati equation (DARE) preview controller
+├── controllers/push_recovery.py       # DCM capture-point logic and stabilization
+├── planners/step_planner.py           # Footstep trajectory and swing-leg generation
+├── utils/data_logger.py               # Telemetry, logging and plotting
+├── sim/mujoco_interface.py            # MuJoCo wrapper (robot, video recorder, push visualization)
+├── tools/build_model.py               # Utility to fix CAD-exported XML files
+└── assets/                            # STL meshes for the XML models, images and media
+```
 
+## Installation
 
-<img width="800" height="425" alt="Scen_A-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/616be702-e658-4a58-8e95-aec3bd1930fb" />
-
----
-Second scenario A lateral impact of 30 N was applied to the torso for 0.1 seconds during the walking cycle. The LQR immediately detected the drift.
-Capture Point Strategy: Instead of over-torquing the ankles, the controller commanded the swing leg to instantly expand its landing position toward the direction of the fall 
-
-
-
-<img width="800" height="422" alt="Scen_B_real-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/777ee1dc-1aa6-4a46-839b-686c971681ad" />
-
-
-
----
-Scenario 1 Output Graph :
-![Scen 1 Graph:](assets/result1.png)
-
-
----
-
-Scenario 2 Output Graph :
-![Scen 2 Graph:](assets/result2.png)
-
-
-
-
----
-### Hardware Prototyping in Progress
-
-This repository is not just a theoretical simulation; it is the software foundation for our physical 12-DOF bipedal robot prototype. 
-
-The control architecture is specifically designed to overcome the computational bottlenecks of low-budget edge hardware. By running the heavy ZMP trajectory generation offline and utilizing a matrix-free Analytical IK solver, we ensure the real-time stabilization (LQR) can run seamlessly on microcontrollers.
-
-**Current Hardware Stack:**
-* **Processing:** Teensy 4.1 Microcontroller (handling the 500 Hz online LQR stabilization loop).
-* **Actuation:** ST Series (e.g., ST 3025) Serial Bus Servomotors for high-torque, precise joint control.
-* **State Estimation:** MPU6050 IMU for real-time Center of Mass (CoM) orientation and drift tracking.
-* **ZMP & Contact Sensing:** Custom-made foot pads equipped with FSR (Force Sensing Resistor) arrays to actively detect ground reaction forces and estimate the real-time Zero-Moment Point (ZMP).
-* **Mechanical Design:** Custom 3D-printed/machined brackets optimized to match the MuJoCo simulation's mass and inertia matrices.
-
-Our next major milestone is achieving full "Sim-to-Real" transfer, utilizing the FSR feedback to deploy the push-recovery algorithms directly onto this physical platform.
-![CAD Preview](assets/prototype.jpeg)
-
-
-
----
-## Installation & Quick Start
-
-You can easily set up and run this 12-DOF bipedal simulation on your local machine. The physics engine and control modules are entirely Python-based and do not require heavy ROS installations.
-
-### 1. Prerequisites
-Ensure you have **Python 3.8+** installed on your system. 
-
-### 2. Install Dependencies
-Clone this repository and install the required numerical computing and physics engine libraries using `pip`. Open your terminal and run:
+Python 3.9 or newer is recommended.
 
 ```bash
-# Clone the repository
-git clone [https://github.com/giraycevher/GO2B-Bipedal-Robot.git](https://github.com/giraycevher/GO2B-Bipedal-Robot.git)
-cd GO2B-Bipedal-Robot
+git clone https://github.com/giraycevher/GO2B-12-DoF-Bipedal-Robot.git
+cd GO2B-12-DoF-Bipedal-Robot
+pip install -r requirements.txt
+```
 
-# Install required Python packages
-pip install mujoco numpy scipy matplotlib
- 
+`requirements.txt` installs `numpy`, `scipy`, `mujoco`, `matplotlib`, and `imageio` with `imageio-ffmpeg` (the last two are only needed for video recording).
 
+## Usage
 
+```bash
+python main.py                       # visual simulation with the free camera
+python main.py --headless            # no window; prints telemetry and saves a plot
+```
+
+### Push tests
+
+```bash
+python main.py --push 30 --push-axis lat       # 30 N lateral push (default visualization: red arrow)
+python main.py --push 30 --push-viz ball       # a real ball impact instead of an arrow
+python main.py --push 15 --push-axis fwd       # forward push
+python main.py --push 30 --no-dcm              # disable DCM push recovery for comparison
+python main.py --push 0                        # no push (unperturbed walking)
+```
+
+By default the push is applied at t = 6 s for 0.1 s.
+
+### Recording a video
+
+```bash
+python main.py --record walk.mp4
+python main.py --record walk.mp4 --headless --width 1920 --height 1080 --fps 60
+```
+
+### Main options
+
+| Option | Description |
+| --- | --- |
+| `--headless` | Run without a viewer window |
+| `--xml PATH` | MuJoCo model to load (the default is set in `config/parameters.py`) |
+| `--zhip` | Hip-center height above ground in meters |
+| `--step-len` | Step length |
+| `--push`, `--push-axis`, `--push-viz` | Push force in N, direction (`lat` or `fwd`), and visualization (`arrow`, `ball`, `none`) |
+| `--no-dcm`, `--k-dcm` | Disable the DCM feedback, or set its gain (0 = off, 1.0 = full) |
+| `--ankle-fb`, `--ankle-fb-sign` | Enable torso-tilt to ankle feedback; use `-1` if it makes balance worse |
+| `--refine-ik` | Refine the analytical IK solution with damped least squares |
+| `--time` | Maximum simulation time in seconds |
+| `--speed` | Playback speed (1.0 = real time, 0 = as fast as possible) |
+| `--record FILE.mp4`, `--fps`, `--width`, `--height` | Video recording settings |
+| `--no-plot` | Do not generate the telemetry plot |
+
+Run `python main.py --help` for the full list.
+
+### Outputs
+
+- A one-line status report per simulated second in the terminal (CoM progress, hip height, swing leg, contacts, DCM error and correction).
+- A telemetry plot (unless `--no-plot` is set).
+- `main_walk_trace_push<F>n.csv`: raw trace with the time, 12 joint commands and actual joint angles, base pose, CoM position and velocity, and foot contacts.
+- `main_walk_trace_push<F>n.metadata.json`: run settings, exit reason, software versions, and a walked/fell result.
+
+## Simulation Results
+
+We compare two scenarios.
+
+**Scenario 1: walking without disturbance.** The robot tracked the offline-generated CoM trajectory on flat ground. Although the LIPM assumption neglects leg masses, the simulation showed stable heel-strike and swing-leg transients.
+
+![Scenario 1](https://github.com/user-attachments/assets/616be702-e658-4a58-8e95-aec3bd1930fb)
+
+![Scenario 1 graph](assets/result1.png)
+
+**Scenario 2: 30 N lateral push.** A lateral force of 30 N was applied to the torso for 0.1 s during the walking cycle. The controller detected the drift. Instead of over-torquing the ankles, it moved the landing position of the swing leg toward the direction of the fall (capture point strategy).
+
+![Scenario 2](https://github.com/user-attachments/assets/777ee1dc-1aa6-4a46-839b-686c971681ad)
+
+![Scenario 2 graph](assets/result2.png)
+
+## Hardware Platform
+
+The simulation was developed alongside a physical 12-DOF prototype. The planned hardware stack:
+
+- **Processing:** Teensy 4.1 (500 Hz online stabilization loop)
+- **Actuation:** ST series serial bus servomotors (e.g., ST 3025)
+- **State estimation:** MPU6050 IMU for torso orientation
+- **Contact sensing:** custom foot pads with FSR (force-sensing resistor) arrays to estimate ground reaction forces and the ZMP
+- **Mechanical design:** custom 3D-printed or machined brackets matched to the mass and inertia values in the MuJoCo model
+
+![Prototype](assets/prototype.jpeg)
+
+This repository contains the **Python simulation only**; the microcontroller firmware is not included. Full sim-to-real transfer of the push-recovery algorithm on the physical platform is future work.
+
+## Citation
+
+If you use this work, please cite the paper above.
+
+## License
+
+Released under the [MIT License](LICENSE).
