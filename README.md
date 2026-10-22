@@ -1,4 +1,4 @@
-# GO2B — 12-DoF Bipedal Robot Simulation
+<img width="3964" height="2268" alt="image" src="https://github.com/user-attachments/assets/85a8d058-fda7-4b65-be7f-0a6eedc990e5" /><img width="3964" height="2268" alt="image" src="https://github.com/user-attachments/assets/03aab60e-28de-4aab-9d40-f4bfe905fe56" /># GO2B — 12-DoF Bipedal Robot Simulation
 
 **ZMP Preview Control · DCM Push Recovery · LQR Stabilization · MuJoCo**
 
@@ -50,6 +50,29 @@ The methods in this repository are based on our conference paper:
 > *21st International Conference on Machine Design and Production (UMTIK 2026), Istanbul, Türkiye.*
 > [Read the paper (PDF)](assets/Development_of_Model_Predictive_Controlled_12-DoF_Bipedal_Robot.pdf)
 
+
+## My Contributions
+
+I was responsible for the main software and control-development activities of
+the GO2B project. My work included:
+
+- Building the Python and MuJoCo simulation environment
+- Developing the ZMP preview-control pipeline
+- Developing the online LQR stabilization algorithm
+- Implementing DCM-based corrective foot-placement logic
+- Implementing analytical inverse kinematics for the 6-DoF legs
+- Developing the embedded software for the physical robot
+- Integrating and calibrating the IMU and foot-contact sensing systems
+- Developing telemetry, data-logging, and experiment tools
+- Running and analyzing the simulation experiments
+- Preparing the technical figures and results
+- Writing the complete conference paper and preparing the final manuscript
+- Refactoring, documenting, and maintaining the public codebase
+
+The conference publication was produced with the technical, academic, and
+supervisory contributions of all listed authors. The manuscript itself,
+including its mathematical exposition, methodology, figures, and results
+discussion, was written by Giray Cevher Eser
 ---
 
 ## Key Features
