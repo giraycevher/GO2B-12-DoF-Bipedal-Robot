@@ -1,4 +1,4 @@
-<img width="3964" height="2268" alt="image" src="https://github.com/user-attachments/assets/85a8d058-fda7-4b65-be7f-0a6eedc990e5" /><img width="3964" height="2268" alt="image" src="https://github.com/user-attachments/assets/03aab60e-28de-4aab-9d40-f4bfe905fe56" /># GO2B — 12-DoF Bipedal Robot Simulation
+
 
 **ZMP Preview Control · DCM Push Recovery · LQR Stabilization · MuJoCo**
 
