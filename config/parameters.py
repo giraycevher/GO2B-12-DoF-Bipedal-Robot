@@ -227,11 +227,14 @@ class TerrainGaitConfig:
     dcm_hold: bool = True
     dcm_deadband: float = 0.008
     zmp_follow: bool = True     # move the ZMP reference with the foot
-    # ankle (CoP) balance loop
-    ankle_balance: bool = False
-    ankle_kp: float = 0.0
-    ankle_kd: float = 0.0
-    ankle_clamp: float = 0.10
+    # ankle (CoP) balance loop: shifts the stance-ankle angles in proportion to
+    # the measured DCM error (and optionally torso tilt). Validated setting:
+    # k_dcm = 2 rad/m, tilt gains 0 (see README, "Ankle balance loop").
+    ankle_balance: bool = True
+    ankle_kp: float = 0.0       # [rad/rad] per radian of torso tilt
+    ankle_kd: float = 0.0       # [rad/(rad/s)] per rad/s of torso tilt rate
+    ankle_k_dcm: float = 2.0    # [rad/m] per metre of DCM error
+    ankle_clamp: float = 0.10   # [rad]
 
 
 @dataclass

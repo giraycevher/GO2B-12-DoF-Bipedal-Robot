@@ -23,7 +23,7 @@ Experiments
     --no-slope       keep the soles level instead of matching the terrain
     --no-touchdown   disable early-touchdown detection
     --dcm            enable DCM foot placement (off by default, see README)
-    --ankle          enable the ankle balance loop (see README)
+    --no-ankle       disable the ankle balance loop (on by default, see README)
     --push F         push of F newtons for 0.1 s at t = 6 s (--push-axis lat|fwd)
     --dump d.npz     100 Hz log of every controller signal
 
@@ -101,9 +101,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
                     help="measure the DCM error against the LIPM state (old, biased)")
     ap.add_argument("--no-zmp-follow", action="store_true",
                     help="do not move the ZMP reference / plan with the foot (old behaviour)")
-    ap.add_argument("--ankle", action="store_true", help="enable the ankle balance loop")
+    ap.add_argument("--no-ankle", action="store_true", help="disable the ankle balance loop")
     ap.add_argument("--ankle-kp", type=float, default=None)
     ap.add_argument("--ankle-kd", type=float, default=None)
+    ap.add_argument("--ankle-kdcm", type=float, default=None,
+                    help="ankle correction per metre of DCM error [rad/m]")
     ap.add_argument("--refine-ik", action="store_true")
     # push
     ap.add_argument("--push", type=float, default=0.0,
@@ -137,12 +139,14 @@ def gait_from_args(args, robot_mass):
     G.k_dcm = args.k_dcm if args.dcm else 0.0
     G.dcm_hold = not args.dcm_legacy
     G.zmp_follow = not args.no_zmp_follow
-    if args.ankle:
-        G.ankle_balance = True
+    G.ankle_balance = not args.no_ankle
+    if G.ankle_balance:
         if args.ankle_kp is not None:
             G.ankle_kp = args.ankle_kp
         if args.ankle_kd is not None:
             G.ankle_kd = args.ankle_kd
+        if args.ankle_kdcm is not None:
+            G.ankle_k_dcm = args.ankle_kdcm
     touch_force = G.touch_force_ratio * robot_mass * 9.81
     return G, touch_force
 

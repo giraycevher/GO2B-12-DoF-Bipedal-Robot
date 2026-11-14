@@ -47,3 +47,26 @@ def test_tilt_rotation_maps_ez_to_normal():
 def test_legs_are_symmetric():
     assert abs(CFG.d_left + CFG.d_right) < 1e-9
     assert abs(CFG.max_reach - 0.174814) < 1e-6
+
+
+@pytest.mark.parametrize("left", [True, False])
+def test_ankle_joint_sign_convention(left):
+    """+ankle_pitch lifts the toe, +ankle_roll lowers the +X edge (used by the
+    ankle balance loop in planners/terrain_planner.py)."""
+    hc = CFG.hip_center_left if left else CFG.hip_center_right
+    q = KIN.solve(hc + np.array([0.0, 0.0, -0.13]), left=left)
+
+    def edge_heights(q):
+        p, R, _, _ = KIN.forward(q, left)
+        a = p + R @ CFG.ankle_center_in_foot
+        toe = a + R @ (CFG.r_foot_level.T @ np.array([0.0, -0.07, 0.0]))
+        side = a + R @ (CFG.r_foot_level.T @ np.array([0.04, 0.0, 0.0]))
+        return toe[2] - a[2], side[2] - a[2]
+
+    toe0, side0 = edge_heights(q)
+    dq = np.zeros(6)
+    dq[4] = 0.05
+    assert edge_heights(q + dq)[0] > toe0 + 1e-3
+    dq = np.zeros(6)
+    dq[5] = 0.05
+    assert edge_heights(q + dq)[1] < side0 - 1e-3

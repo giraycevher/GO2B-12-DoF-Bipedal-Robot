@@ -178,7 +178,9 @@ class MujocoRobot:
         pitch = -math.asin(float(np.clip(R[1, 2], -1.0, 1.0)))
         roll = math.asin(float(np.clip(R[0, 2], -1.0, 1.0)))
         w = R @ self.data.qvel[3:6]                       # world-frame angular velocity
-        return pitch, roll, -float(w[0]), -float(w[1])
+        # +rotation about world +X tilts the torso towards -Y (= forward),
+        # +rotation about world +Y tilts it towards +X: same signs as pitch/roll.
+        return pitch, roll, float(w[0]), float(w[1])
 
     def make_com_model(self):
         """Return f(torso_pos, q_a, q_b) -> whole-body CoM of that posture (world).

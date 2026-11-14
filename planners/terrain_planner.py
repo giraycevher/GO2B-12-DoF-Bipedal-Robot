@@ -21,8 +21,8 @@ main.py and adds a terrain-adaptation layer on top:
   6. Optional DCM placement  foot placement from the capture-point error,
                              measured against the TRUE CoM of the commanded
                              posture (off by default, see README).
-  7. Optional ankle balance  CoP-style ankle correction from torso tilt
-                             (off by default, see README).
+  7. Ankle balance loop      CoP-style correction of the stance-ankle angles
+                             from the DCM error (on by default, see README).
 
 This module does not import MuJoCo. Run it directly for a kinematic dry run
 (IK -> FK foot/terrain consistency check, no physics):
@@ -282,12 +282,16 @@ class TerrainStepPlanner:
 
         # ---------------- optional ankle balance (CoP-style)
         self.ankle_corr = np.zeros(2)
-        if p.ankle_balance and torso_tilt is not None and si >= 1:
+        if p.ankle_balance and torso_tilt is not None and si >= 11:
             pitch, roll, dpitch, droll = torso_tilt
             c = p.ankle_clamp
+            # DCM error ahead of the plan (raw > 0) also asks for the CoP to move
+            # that way: same sign as a forward / +X torso lean.
             self.ankle_corr = np.array([
-                float(np.clip(p.ankle_kp * pitch + p.ankle_kd * dpitch, -c, c)),
-                float(np.clip(p.ankle_kp * roll + p.ankle_kd * droll, -c, c))])
+                float(np.clip(p.ankle_kp * pitch + p.ankle_kd * dpitch
+                              + p.ankle_k_dcm * self.raw[1], -c, c)),
+                float(np.clip(p.ankle_kp * roll + p.ankle_kd * droll
+                              + p.ankle_k_dcm * self.raw[0], -c, c))])
 
         A, B = self.feet["A"], self.feet["B"]
         if si >= self.stop_tick:
@@ -456,7 +460,14 @@ class TerrainStepPlanner:
 
     def apply_ankle_correction(self, q_a, q_b):
         """Add the ankle balance correction to the stance foot (both feet in
-        double support). Returns new arrays; joint 4 = ankle pitch, 5 = ankle roll."""
+        double support). Returns new arrays; joint 4 = ankle pitch, 5 = ankle roll.
+
+        Signs (checked with forward kinematics, tests/test_kinematics.py):
+        +ankle_pitch lifts the toe relative to the shank, +ankle_roll lowers
+        the model +X edge of the sole. A torso leaning forward (pitch > 0) is
+        pushed back by pressing the toes down (CoP forward): ankle_pitch -= .
+        A torso leaning towards +X (roll > 0) is pushed back by pressing the
+        +X edge down (CoP towards +X): ankle_roll += ."""
         if not np.any(self.ankle_corr):
             return q_a, q_b
         q_a, q_b = q_a.copy(), q_b.copy()
@@ -464,8 +475,8 @@ class TerrainStepPlanner:
         for name, q in (("A", q_a), ("B", q_b)):
             if self.swing == name and self.feet[name].lift > 0.0:
                 continue
-            q[4] += dp
-            q[5] -= dr
+            q[4] -= dp
+            q[5] += dr
         return q_a, q_b
 
 
