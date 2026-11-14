@@ -1,8 +1,9 @@
+# GO2B — 12-DoF Bipedal Robot
 
+**ZMP Preview Control · DCM Push Recovery · LQR Stabilization · Rough-Terrain Walking · MuJoCo**
 
-**ZMP Preview Control · DCM Push Recovery · LQR Stabilization · MuJoCo**
-
-![Python](https://img.shields.io/badge/python-3.9%2B-blue)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Tests](https://github.com/giraycevher/GO2B-12-DoF-Bipedal-Robot/actions/workflows/python-package.yml/badge.svg)
 ![Simulator](https://img.shields.io/badge/simulator-MuJoCo-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Paper](https://img.shields.io/badge/paper-UMTIK%202026-lightgrey)
@@ -73,7 +74,8 @@ the GO2B project. My work included:
 The conference publication was produced with the technical, academic, and
 supervisory contributions of all listed authors. The manuscript itself,
 including its mathematical exposition, methodology, figures, and results
-discussion, was written by Giray Cevher Eser
+discussion, was written by Giray Cevher Eser.
+
 ---
 
 ## Key Features
@@ -85,7 +87,8 @@ discussion, was written by Giray Cevher Eser
 - **Analytical inverse kinematics.** A geometric, matrix-free solver for 6-DoF legs instead of a Jacobian-based solver. An optional damped-least-squares (DLS) refinement is available with `--refine-ik`.
 - **Modular design.** Controllers, planner and kinematics are separate packages. By design, only `sim/mujoco_interface.py` (plus the viewer and logging glue in `main.py`) touches MuJoCo, so the control code can later be ported to firmware.
 - **Built-in experiment tooling.** Push tests with visualization (arrow or real ball impact), video recording, telemetry plots, CSV traces and a JSON metadata file for every run.
-- **Rough-terrain walking (new).** A terrain-aware extension walks the mesh model over procedurally generated, forest-floor-like ground (soil undulations, roots, stones, pits) using terrain-aware swing trajectories, slope-adapted foot orientation and early-touchdown detection. See [Rough-terrain walking](#rough-terrain-walking).
+- **Rough-terrain walking.** `main_terrain.py` walks the robot over procedurally generated, forest-floor-like ground (soil undulations, roots, stones, pits) with terrain-aware swing trajectories, slope-adapted foot orientation, early-touchdown detection and an ankle balance loop. See [Rough-terrain walking](#rough-terrain-walking).
+- **Tested.** 44 automated tests (IK/FK, preview control, terrain, kinematic dry run, short simulations) run on every push via GitHub Actions.
 
 ---
 
@@ -160,29 +163,28 @@ flowchart LR
 ## Repository Structure
 
 ```
-├── main.py                            # Main orchestration loop and command-line interface
+├── main.py                            # Flat-ground walking: main loop and command-line interface
+├── main_terrain.py                    # Rough-terrain walking: main loop and command-line interface
+├── robot_walk.xml                     # MuJoCo robot model (full CAD meshes, 2.99 kg)
 ├── requirements.txt                   # Python dependencies
-├── robot_final.xml, robot_walk.xml    # MuJoCo robot models
-├── config/parameters.py               # All constants (gains, limits, simulation parameters)
+├── pytest.ini                         # Test configuration
+├── config/parameters.py               # All constants (gains, limits, terrain, simulation parameters)
 ├── kinematics/leg_ik.py               # Analytical inverse and forward kinematics
 ├── controllers/preview_controller.py  # LIPM and DARE preview controller
 ├── controllers/push_recovery.py       # DCM capture-point logic and stabilization
-├── planners/step_planner.py           # Footstep trajectory and swing-leg generation
+├── planners/step_planner.py           # Flat-ground footsteps and swing legs
+├── planners/terrain_planner.py        # Terrain-aware footsteps, swing legs and ankle balance
+├── sim/mujoco_interface.py            # MuJoCo wrapper (robot, sensors, video recorder, push visualization)
+├── sim/terrain.py                     # Forest-floor heightfield generator
 ├── utils/data_logger.py               # Telemetry, logging and plotting
-├── sim/mujoco_interface.py            # MuJoCo wrapper (robot, video recorder, push visualization)
 ├── tools/build_model.py               # Utility to fix CAD-exported XML files
-├── assets/                            # STL meshes for the XML models, images and media
-└── rough_terrain/                     # Standalone rough-terrain walking module (see below)
-    ├── main_walk_terrain.py           #   entry point: terrain + walking + logging + video
-    ├── rough_gait.py                  #   terrain-aware gait controller (no MuJoCo dependency)
-    ├── terrain.py                     #   forest-floor heightfield generator (no MuJoCo dependency)
-    ├── run_tests.py                   #   batch runner that prints a results table
-    ├── walk_common.py                 #   shared helpers (video, push arrow, measurements)
-    ├── kinematic.py, kinematic_mesh.py#   Kajita analytical IK and the mesh-model adapter
-    ├── preview_control.py, robot_utils.py
-    ├── robot_walk.xml                 #   mesh robot model
-    └── assets/                        #   STL meshes for robot_walk.xml
+├── tools/run_terrain_tests.py         # Batch of terrain experiments -> results table
+├── tests/                             # Automated tests (pytest)
+├── docs/                              # Methods note and code guide (PDF)
+└── assets/                            # STL meshes for the model, images and media
 ```
+
+Every script finds `robot_walk.xml` and its packages on its own, so you can run it from any folder (`python path/to/main.py`). All paths are resolved against the repository root (`config.parameters.PROJECT_ROOT`).
 
 **Suggested reading order for newcomers:**
 
@@ -192,12 +194,13 @@ flowchart LR
 4. `controllers/preview_controller.py` — the LIPM + DARE trajectory generator.
 5. `controllers/push_recovery.py` — the DCM logic.
 6. `main.py` — how everything is stitched into one loop.
+7. `planners/terrain_planner.py` and `main_terrain.py` — the rough-terrain extension.
 
 ---
 
 ## Installation
 
-Python 3.9 or newer is recommended.
+Python 3.10 or newer is required (current MuJoCo releases do not support 3.9).
 
 ```bash
 git clone https://github.com/giraycevher/GO2B-12-DoF-Bipedal-Robot.git
@@ -211,6 +214,7 @@ pip install -r requirements.txt
 
 ```bash
 python main.py --headless --time 10 --no-plot
+python -m pytest            # run the automated tests (pip install pytest)
 ```
 
 ---
@@ -279,7 +283,9 @@ python main.py --push 30 --push-axis lat --no-dcm  # same push, DCM off (compari
 
 ## Simulation Results
 
-These are qualitative demonstrations of the two core behaviors. A systematic evaluation (success rates over randomized trials, push-recovery envelope, ablations, latency and noise robustness) is planned; the protocol is described in [`BENCHMARKING.md`](BENCHMARKING.md).
+These are qualitative demonstrations of the two core behaviors. A systematic evaluation (success rates over randomized trials, push-recovery envelope, ablations, latency and noise robustness) is planned.
+
+Reproduced with the current code and model (`python main.py --headless`): undisturbed walking covers 0.72 m in 14 s; with a 30 N, 0.1 s lateral push the robot keeps walking (0.66 m, DCM on) and falls with `--no-dcm`.
 
 **Scenario 1: walking without disturbance.** The robot tracked the offline-generated CoM trajectory on flat ground. Although the LIPM assumption neglects leg masses, the simulation showed stable heel-strike and swing-leg transients.
 
@@ -297,90 +303,92 @@ These are qualitative demonstrations of the two core behaviors. A systematic eva
 
 ## Rough-Terrain Walking
 
-The `rough_terrain/` folder extends the same ZMP preview-control + analytical-IK pipeline so that the mesh model (`rough_terrain/robot_walk.xml`, 2.99 kg) walks over **uneven, forest-floor-like ground**. It is a standalone module: it does not modify or depend on `main.py` or the packages above.
+`main_terrain.py` uses the same ZMP preview controller and analytical IK as `main.py` and adds a terrain-adaptation layer (`planners/terrain_planner.py`) so that the robot walks over **uneven, forest-floor-like ground** generated by `sim/terrain.py`.
 
 ![Rough-terrain walk](assets/rough_terrain_walk.gif)
 
-Full video: [`rough_terrain/walk_rough1.0.mp4`](rough_terrain/walk_rough1.0.mp4) (24 steps at `--rough 1.0`).
+Full video: [`assets/rough_terrain_walk.mp4`](assets/rough_terrain_walk.mp4) (24 steps at `--rough 1.0`).
 
-![Rough-terrain result](rough_terrain/walk_terrain.png)
+![Rough-terrain result](assets/rough_terrain_result.png)
 
-*Left: terrain height map with the measured footholds and CoM path. Top right: commanded sole height of each foot. The flat segments show the ground height each foot ended up standing on. Bottom right: measured torso roll and pitch.*
-
-### What "rough" means at this scale
-
-The leg is only 17.5 cm long, so terrain is scaled to the robot. `terrain.py` builds a MuJoCo heightfield from four layers: broad soil undulations, fine gravel/leaf texture, roots crossing the path as thin ridges, and small stones and pits. At `--rough 1.0` the height range is about ±15 mm and 99 % of the slopes are below 17°. For a human-sized leg (~90 cm), that is roughly 7–8 cm roots and stones. The ground is flat where the robot starts and blends into the rough region ahead.
-
-### What the controller adds
-
-The ZMP preview controller and the Kajita IK are unchanged. `rough_gait.py` adds four things on top:
-
-1. **Terrain-aware swing.** Each foot keeps its own ground height. The swing foot is lifted high enough to clear the highest point along its path and lands at the terrain height of its target.
-2. **Slope-adapted foot orientation.** A least-squares plane is fitted to the terrain under the footprint, $z = a\,\Delta X + b\,\Delta Y + c$, solved from $A^\top A\,[a\;b\;c]^\top = A^\top h$. The tilt is clipped to ±8°, and the plane is shifted up so that no sample is below it. The ankle is then commanded so the sole lies on that plane instead of touching a bump with one edge.
-3. **Early touchdown.** If the swing foot's contact sensor fires before the planned landing, the descent is frozen there. The new ground height is taken from the measured joint angles (forward kinematics), not from the commanded value, because the real foot lags the command by 6–10 mm.
-4. **Reach guard.** If a leg approaches full extension, the hip is lowered so the knee never locks and the IK never saturates.
-
-In addition, each landing re-anchors the remaining footstep plan and its ZMP reference to where the foot actually landed, so the plan does not run ahead of the robot.
+*Left: terrain height map with the measured footholds and CoM path. Top right: commanded sole height of each foot; the flat segments show the ground height each foot ended up standing on. Bottom right: measured torso roll and pitch.*
 
 ### Running it
 
-Run from inside `rough_terrain/`:
-
 ```bash
-cd rough_terrain
-python terrain.py                          # preview the terrain (no MuJoCo needed)
-python rough_gait.py                       # kinematic dry run: IK -> FK foot/terrain check (no MuJoCo needed)
-python main_walk_terrain.py --rough 0.6    # default terrain, viewer window
-python main_walk_terrain.py --rough 1.0 --record walk.mp4
-python run_tests.py                        # headless batch run, prints a results table
+python main_terrain.py                        # rough = 0.6, viewer window
+python main_terrain.py --rough 1.0            # harder terrain
+python main_terrain.py --rough 1.0 --seed 7   # a different random terrain
+python main_terrain.py --headless             # no window; summary + plot (walk_terrain.png)
+python main_terrain.py --rough 1.0 --record walk.mp4
+python tools/run_terrain_tests.py             # batch of experiments -> results table
+python planners/terrain_planner.py            # kinematic dry run, no physics
 ```
 
 | Option | Description |
 | --- | --- |
-| `--rough R` | Roughness multiplier: 0 = flat, 0.6 = default, 1.0 = hard, 1.5 = very hard |
+| `--rough R` | Roughness: 0 = flat, 0.6 = default, 1.0 = hard, 1.5 = very hard |
 | `--seed N` | A different random terrain |
 | `--blind` | Do not use the height map; adapt only through contact sensing |
-| `--no-slope` | Keep the feet level instead of matching the local slope |
+| `--no-slope` | Keep the soles level instead of matching the local slope |
 | `--no-touchdown` | Disable early-touchdown detection |
-| `--dcm` | Enable DCM foot-placement feedback (off by default, see below) |
+| `--no-ankle` | Disable the ankle balance loop |
+| `--dcm` | Enable DCM foot placement (off by default, see below) |
+| `--step-time`, `--step-len`, `--step-height`, `--steps` | Gait timing and geometry |
 | `--push F`, `--push-axis` | Push of F newtons for 0.1 s at t = 6 s |
-| `--dump FILE.npz` | 100 Hz diagnostic log of every controller signal |
+| `--dump FILE.npz` | 100 Hz log of every controller signal |
 
-At startup the script ray-casts the MuJoCo heightfield and checks it against the Python height map. It stops if they disagree by more than 2 mm.
+At startup the script ray-casts the MuJoCo heightfield and checks it against the controller's height map; it stops if they differ by more than 2 mm. The terrain scene is written to `robot_terrain.xml` next to `robot_walk.xml` (ignored by git).
+
+### What "rough" means at this scale
+
+The leg is only 17.5 cm long, so the terrain is scaled to the robot. `sim/terrain.py` builds a MuJoCo heightfield from four layers: broad soil undulations, fine gravel/leaf texture, roots crossing the path as thin ridges, and small stones and pits. At `--rough 1.0` the height range is about −14 / +18 mm and 99 % of the slopes are below 17°. For a human-sized leg (~90 cm) that corresponds to roughly 7–8 cm roots and stones. The ground is flat where the robot starts and blends into the rough region ahead.
+
+### What the controller adds
+
+1. **Terrain-aware swing.** Each foot keeps its own ground height. The swing foot is lifted high enough to clear the highest point along its path and lands at the terrain height of its target.
+2. **Slope-adapted foot orientation.** A least-squares plane $z = a\,\Delta X + b\,\Delta Y + c$ is fitted to the terrain under the footprint (normal equations $A^\top A\,[a\;b\;c]^\top = A^\top h$), the tilt is clipped to ±8°, and the plane is shifted up so that no sample lies above the sole. The ankle is commanded so the sole lies on that plane instead of resting on one edge.
+3. **Early touchdown.** If the swing foot's contact force exceeds 25 % of the robot weight before the planned landing, the descent is frozen there. The new ground height is taken from the measured joint angles (forward kinematics), not from the command, because the real foot lags the command by 6–10 mm.
+4. **Reach guard.** If a leg approaches full extension, the hip is lowered so the knee never locks and the IK never saturates.
+5. **Plan re-anchoring.** The ZMP reference and the remaining footsteps follow where the foot actually landed, so the plan never runs ahead of the robot.
+6. **Ankle balance loop.** The stance-ankle angles are shifted in proportion to the measured DCM error (2 rad per metre, clipped to ±0.1 rad), which moves the center of pressure towards the direction of the fall. The DCM error is measured against the true CoM of the commanded posture (see below).
+
+Derivations and numerical examples for every step are in the methods note [`docs/rough_terrain_methods.pdf`](docs/rough_terrain_methods.pdf) (Turkish). A hands-on guide to reading, running and extending the code is in [`docs/code_guide_tr.pdf`](docs/code_guide_tr.pdf) (Turkish).
 
 ### Results
 
-All runs: 24 steps, 0.69 m planned distance, MuJoCo 4.0.1. "Walked" means the run reached the end without falling.
+All runs: 24 steps of 3 cm at 0.9 s per step (0.69 m planned), MuJoCo 4.0.1; reproduce with `python tools/run_terrain_tests.py`. "Walked" means the run reached the end without falling.
 
 | Experiment | Result |
 | --- | --- |
 | Flat, `--rough 0.3`, `--rough 0.6` | walked, 0.68 m |
-| `--rough 1.0`, 6 different terrains | 6 / 6 walked, 0.63–0.69 m |
-| `--rough 1.5`, 3 different terrains | 2 / 3 walked, 0.57–0.60 m |
+| `--rough 1.0`, 6 different terrains | 6 / 6 walked, 0.64–0.67 m |
+| `--rough 1.5`, 3 different terrains | 3 / 3 walked, 0.63–0.64 m |
 | `--rough 2.0` | fell |
-| `--rough 1.0 --blind` (no height map) | walked, 0.58 m |
-| `--rough 1.0 --no-slope` (feet kept level) | walked, 0.56 m |
-| Flat ground, 0.1 s push: lateral +20 N / −11 N, forward ±10 N | walked |
-| Flat ground, 0.1 s push: lateral −14 N, forward +14 N | fell |
+| `--rough 1.0 --blind` (no height map) | walked, 0.65 m |
+| `--rough 1.0 --no-slope` (soles kept level) | walked, 0.58 m |
+| Flat ground, 0.1 s push: lateral +25 N / −14 N, forward +12 N / −10 N | walked |
+| Flat ground, 0.1 s push: lateral −17 N, forward −14 N | fell |
 | `--rough 0.6`, 0.1 s push: lateral ±8 N, forward +6 N | walked |
 
-**DCM feedback did not help in this module.** With DCM foot placement on and off, the robot survived exactly the same pushes, and in 7 of 8 paired rough-terrain runs DCM reduced the distance walked, so it is off by default here. The reason is the time scale: for this robot $1/\omega = \sqrt{z_c/g} = \sqrt{0.185/9.81} = 0.137$ s, while one step takes 0.45 s, i.e. 3.3 time constants. A DCM error grows by $e^{3.3} \approx 27\times$ within one step, so by the time the corrected foot lands it is too late. Recovering from larger pushes on this platform likely needs an ankle (CoP) strategy or much shorter steps. This finding is specific to the mesh model and the gait parameters above; it does not re-evaluate the results of `main.py`.
+**Effect of the ankle balance loop** (same cases with `--no-ankle`): the −14 N lateral push is survived only with the loop; on `--rough 1.5` the largest torso pitch drops from 9–19° to 5–9°; walking blind on `--rough 1.0` reaches 0.65 m instead of 0.58 m. At `--rough 1.0` and below both settings walk all cases. Single runs are sensitive to small numerical differences, so treat individual distances as ±2 cm.
+
+**DCM foot placement does not help at this step time.** With DCM on and off the robot survived the same pushes, and on rough terrain DCM mostly reduced the distance walked, so it is off by default here. The reason is the time scale: for this robot $1/\omega = \sqrt{z_c/g} = \sqrt{0.185/9.81} = 0.137$ s, while one step takes 0.9 s. A DCM error grows as $e^{\omega t}$, i.e. about 27× in just half a step (0.45 s), so by the time the corrected foot lands it is too late. The flat-ground controller (`main.py`) uses 0.45 s steps, and there DCM does work (30 N push survived with DCM, fell without). Consistently, with `--step-time 0.45 --dcm` the terrain controller survives a −17 N push that it does not survive without DCM, but it covers only about half the planned distance; a faster terrain gait is future work.
 
 ### Lessons from the real meshes
 
-The first version was tested with placeholder box meshes and appeared to work. With the real STL meshes it fell even on flat ground. The causes, all fixed and documented in `rough_gait.py`, were:
+The first version was tested with placeholder box meshes and appeared to work; with the real STL meshes it fell even on flat ground. The causes, all fixed and documented in `planners/terrain_planner.py`:
 
-- **Wrong DCM reference.** The LIPM puts all the mass at the hip, but this robot's legs are heavy. The plan swings the hip ±71 mm while the true CoM swings only ±48 mm. Comparing the measured DCM with the LIPM state therefore produced a 60 mm "error" with no push at all. The DCM error is now computed against the true CoM of the commanded posture.
+- **Wrong DCM reference.** The LIPM puts all the mass at the hip, but this robot's legs are heavy: the plan swings the hip ±71 mm while the true CoM swings only ±48 mm. Comparing the measured DCM with the LIPM state produced a 60 mm "error" with no push at all. The DCM error is now computed against the true CoM of the commanded posture.
 - **ZMP reference not following the foot.** When a foot was moved, the ZMP reference for the next support phase stayed at the old spot.
-- **Touchdown height from the command.** It is now taken from the measured joint angles instead.
+- **Touchdown height from the command.** It is now taken from the measured joint angles.
 - **Stopping onto the front foot.** When the walk ended, the ZMP reference went onto the front foot instead of between both feet.
 
-### Limitations of the rough-terrain module
+### Limitations of the rough-terrain controller
 
-- **Ground-truth terrain.** The controller reads the terrain height directly from the simulation. A real robot would need a depth camera or LiDAR plus elevation mapping. `--blind` shows what happens without it.
-- **Short and slow.** Walking is straight ahead with 3 cm steps at 0.45 s per step.
-- **Untested elsewhere.** The terrain is rigid, and the module has been tested in MuJoCo only.
-- **Not yet integrated.** It is not yet part of the modular package (`controllers/`, `planners/`, …).
+- **Ground-truth terrain.** The controller reads the terrain height directly from the simulation. A real robot would need a depth camera or LiDAR plus elevation mapping; `--blind` shows what happens without it.
+- **Short and slow.** Straight-ahead walking with 3 cm steps at 0.9 s per step.
+- **Rigid ground, one simulator.** The soil is modeled as a slightly soft rigid contact, in MuJoCo only.
 
 ---
 
@@ -408,7 +416,7 @@ Being explicit about what this project does *not* (yet) show:
 
 - **Simulation only.** No results on the physical robot are reported.
 - **LIPM assumptions.** The planner assumes a point-mass CoM at constant height and neglects leg dynamics. Real legs have mass and swing dynamics that the feedback loops must absorb.
-- **Ideal-ish environment.** The main pipeline (`main.py`) is demonstrated on flat ground; the separate `rough_terrain/` module walks on uneven ground but reads the terrain height directly from the simulator. Actuator dynamics (servo lag, backlash, torque limits, bus latency) and sensor noise are not yet modeled in detail.
+- **Ideal-ish environment.** `main.py` walks on flat ground; `main_terrain.py` walks on uneven ground but reads the terrain height directly from the simulator. Actuator dynamics (servo lag, backlash, torque limits, bus latency) and sensor noise are not yet modeled in detail.
 - **Limited push evaluation.** The documented push test is a 30 N, 0.1 s lateral push at a fixed time. The full recoverable envelope (force, direction, gait phase) is not yet characterized.
 - **Single physics engine.** Results come from MuJoCo only; contact models differ between simulators.
 
@@ -421,15 +429,14 @@ Being explicit about what this project does *not* (yet) show:
 - [x] DCM push recovery with foot-landing adjustment
 - [x] Analytical inverse kinematics (+ optional DLS refinement)
 - [x] Push visualization, video recording, telemetry logging
-- [x] Rough-terrain walking: terrain-aware swing, slope-adapted feet, early touchdown (standalone module)
-- [ ] Integrate the rough-terrain module into the modular package
+- [x] Rough-terrain walking: terrain-aware swing, slope-adapted feet, early touchdown, ankle balance loop
+- [x] Unit tests and continuous integration
+- [ ] Faster terrain gait (0.45 s steps) where DCM foot placement becomes effective
 - [ ] Perception-based height map (depth camera / elevation mapping) instead of simulator ground truth
-- [ ] Ankle (CoP) balance strategy for larger pushes and rougher terrain
 - [ ] Systematic benchmark suite with randomized trials and confidence intervals
 - [ ] Push-recovery envelope (force × direction × gait phase)
 - [ ] Realistic actuator model (lag, saturation, backlash, communication delay)
 - [ ] Sensor models and state estimation (IMU noise, FSR-based ZMP)
-- [ ] Unit tests and continuous integration
 - [ ] Processor-in-the-loop test on a real Teensy 4.1
 - [ ] Whole-body control (WBC) extension
 - [ ] Firmware release and hardware sim-to-real validation
@@ -445,8 +452,9 @@ Being explicit about what this project does *not* (yet) show:
 | Torso-tilt ankle feedback makes balance worse | Run with `--ankle-fb --ankle-fb-sign -1`. |
 | You want to isolate the effect of DCM | Compare `--no-dcm` with the default, or sweep `--k-dcm` between 0 and 1. |
 | Simulation runs too slowly or too fast | Adjust `--speed` (1.0 = real time, 0 = as fast as possible). |
-| `rough_terrain`: `ModuleNotFoundError` | Run the scripts from inside `rough_terrain/`, so that its modules and `assets/` are found. |
-| `rough_terrain`: "Python yukseklik haritasi ile MuJoCo hfield uyusmuyor" | The terrain written to MuJoCo differs from the controller's copy; open an issue, or run with `--blind` as a workaround. |
+| `Error opening file 'robot_walk.xml'` or `ModuleNotFoundError` | Update to the latest version: all paths are now resolved against the repository root, so any working folder is fine. Do not move single scripts out of the repository. |
+| `main_terrain.py`: "height map and the MuJoCo heightfield differ" | The terrain written to MuJoCo differs from the controller's copy; open an issue, or run with `--blind` as a workaround. |
+| The robot falls in `main_terrain.py` | Check the summary's torso tilt; try `--rough` one step lower, another `--seed`, or `--no-ankle` to compare. |
 
 ---
 

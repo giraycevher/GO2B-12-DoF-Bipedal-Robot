@@ -1,3 +1,4 @@
+import math
 import sys
 from typing import Optional, Tuple
 
@@ -8,7 +9,7 @@ try:
 except ImportError:
     sys.exit("mujoco is not installed:  pip install mujoco")
 
-from config.parameters import RobotConfig
+from config.parameters import RobotConfig, resolve_path
 from kinematics.leg_ik import quat_to_mat
 
 
@@ -16,6 +17,7 @@ class MujocoRobot:
 
     def __init__(self, cfg: RobotConfig):
         self.cfg = cfg
+        cfg.xml_path = resolve_path(cfg.xml_path)
         self.model = mujoco.MjModel.from_xml_path(cfg.xml_path)
         self.data = mujoco.MjData(self.model)
 
@@ -122,6 +124,81 @@ class MujocoRobot:
         ank_z = float(self.data.xanchor[self.ankle_roll_jid][2])
         return ank_z - zmin
 
+    # ------------------------------------------------------------------
+    #  Extra measurements used by the terrain controller (main_terrain.py)
+    # ------------------------------------------------------------------
+    def foot_sole_bounds(self, foot_body: str, ankle_joint: str, tol: float = 0.003):
+        """Sole extent of a foot relative to its ankle axis, in the walking frame.
+
+        Measured in the q = 0 pose (call measure_ankle_height() first): the
+        collision-mesh vertices within `tol` of the lowest one form the sole.
+        Returns (fwd_min, fwd_max, lat_min, lat_max) [m] or None."""
+        jid = self._id(mujoco.mjtObj.mjOBJ_JOINT, ankle_joint)
+        anchor = self.data.xanchor[jid]
+        pts = []
+        for gi in range(self.model.ngeom):
+            bname = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_BODY,
+                                      self.model.geom_bodyid[gi])
+            if bname != foot_body:
+                continue
+            if self.model.geom_contype[gi] == 0 and self.model.geom_conaffinity[gi] == 0:
+                continue
+            if self.model.geom_type[gi] != mujoco.mjtGeom.mjGEOM_MESH:
+                continue
+            mid = self.model.geom_dataid[gi]
+            a, n = self.model.mesh_vertadr[mid], self.model.mesh_vertnum[mid]
+            gR = self.data.geom_xmat[gi].reshape(3, 3)
+            pts.append(self.model.mesh_vert[a:a + n] @ gR.T + self.data.geom_xpos[gi])
+        if not pts:
+            return None
+        P = np.vstack(pts)
+        sole = P[P[:, 2] < P[:, 2].min() + tol]
+        lat = sole[:, 0] - anchor[0]
+        fwd = -(sole[:, 1] - anchor[1])
+        return float(fwd.min()), float(fwd.max()), float(lat.min()), float(lat.max())
+
+    def touch_forces(self) -> Tuple[float, float]:
+        """Contact force [N] under foot A (left_*) and foot B (right_*)."""
+        return (float(self.data.sensor("touch_left").data[0]),
+                float(self.data.sensor("touch_right").data[0]))
+
+    def ankle_height_difference(self, kin) -> float:
+        """MEASURED (ankle A z) - (ankle B z) [m] from joint encoders + torso
+        orientation (forward kinematics), as a real robot would compute it."""
+        R_w = self.base_rotation
+        pa, _ = kin.ankle_center(self.data.qpos[self.qadr[:6]], True)
+        pb, _ = kin.ankle_center(self.data.qpos[self.qadr[6:]], False)
+        return float((R_w @ (pa - pb))[2])
+
+    def torso_tilt(self) -> Tuple[float, float, float, float]:
+        """(pitch, roll, pitch_rate, roll_rate) of the torso in the walking frame.
+
+        pitch > 0 = leaning forward (model -Y), roll > 0 = leaning towards model +X."""
+        R = self.base_rotation
+        pitch = -math.asin(float(np.clip(R[1, 2], -1.0, 1.0)))
+        roll = math.asin(float(np.clip(R[0, 2], -1.0, 1.0)))
+        w = R @ self.data.qvel[3:6]                       # world-frame angular velocity
+        # +rotation about world +X tilts the torso towards -Y (= forward),
+        # +rotation about world +Y tilts it towards +X: same signs as pitch/roll.
+        return pitch, roll, float(w[0]), float(w[1])
+
+    def make_com_model(self):
+        """Return f(torso_pos, q_a, q_b) -> whole-body CoM of that posture (world).
+
+        Uses a separate MjData, so the running simulation is not disturbed."""
+        d = mujoco.MjData(self.model)
+
+        def com(torso_pos, q_a, q_b):
+            d.qpos[:] = self.model.qpos0
+            d.qpos[0:3] = torso_pos
+            d.qpos[3:7] = [1.0, 0.0, 0.0, 0.0]
+            d.qpos[self.qadr[:6]] = q_a
+            d.qpos[self.qadr[6:]] = q_b
+            mujoco.mj_kinematics(self.model, d)
+            mujoco.mj_comPos(self.model, d)
+            return d.subtree_com[self.torso_id].copy()
+        return com
+
     def set_pose(self, torso_pos, q_a, q_b):
         # Start from the model's default qpos (model.qpos0), not all-zero:
         # zeroing the whole array would also teleport any other free body
@@ -162,7 +239,9 @@ class MujocoRobot:
         return d * (1.0 if force >= 0 else -1.0)
 
     def arrow_points(self, axis: str, force: float):
-        p = self.data.xpos[self.torso_id].copy()
+        # Drawn at the torso CENTER OF MASS: xfrc_applied acts there, and the
+        # push ball is aimed there (the body origin lies outside the base plate).
+        p = self.data.xipos[self.torso_id].copy()
         d = self.push_direction(axis, force)
         length = 0.10 + 0.010 * min(abs(force), 40.0)
         return p - d * length, p + d * 0.05, d
@@ -174,7 +253,7 @@ class MujocoRobot:
         d = self.push_direction(axis, force)
         v = abs(force) * duration / max(1e-6, self.ball_mass)
         self.data.qpos[self.ball_qadr:self.ball_qadr + 3] = \
-            self.data.xpos[self.torso_id] - d * distance
+            self.data.xipos[self.torso_id] - d * distance
         self.data.qpos[self.ball_qadr + 3:self.ball_qadr + 7] = [1, 0, 0, 0]
         self.data.qvel[self.ball_dofadr:self.ball_dofadr + 3] = d * v
         self.data.qvel[self.ball_dofadr + 3:self.ball_dofadr + 6] = 0.0
@@ -244,8 +323,11 @@ class VideoRecorder:
     def scene(self):
         return self.renderer.scene
 
-    def capture(self, data):
-        self.renderer.update_scene(data)
+    def capture(self, data, camera=None):
+        if camera is None:
+            self.renderer.update_scene(data)
+        else:
+            self.renderer.update_scene(data, camera)
 
     def write(self):
         frame = self.renderer.render()
