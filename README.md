@@ -303,7 +303,7 @@ The `rough_terrain/` folder extends the same ZMP preview-control + analytical-IK
 
 Full video: [`rough_terrain/walk_rough1.0.mp4`](rough_terrain/walk_rough1.0.mp4) (24 steps at `--rough 1.0`).
 
-![Rough-terrain result](assets/rough_terrain_result.png)
+![Rough-terrain result](rough_terrain/walk_terrain.png)
 
 *Left: terrain height map with the measured footholds and CoM path. Top right: commanded sole height of each foot. The flat segments show the ground height each foot ended up standing on. Bottom right: measured torso roll and pitch.*
 
