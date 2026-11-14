@@ -612,6 +612,7 @@ def main():
     exit_reason = "sure doldu"
     next_report = 0.0
     next_sync = 0.0
+    arrow_alpha = 0.0    # ilk video karesinde tanimli olsun (flake8 F821 / --record + --push)
     try:
         while data.time < args.time:
             if viewer is not None and not viewer.is_running():

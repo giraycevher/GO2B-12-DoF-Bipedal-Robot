@@ -8,8 +8,8 @@ degismedi) + araziye uyum katmani (rough_gait.py).
 
 Gerekli dosyalar (hepsi ayni klasorde):
     robot_walk.xml, assets/ (STL'ler), kinematic.py, kinematic_mesh.py,
-    robot_utils.py, preview_control.py, main_walk.py,
-    terrain.py, rough_gait.py, main_walk_terrain.py   <- son ucu yeni
+    robot_utils.py, preview_control.py,
+    terrain.py, rough_gait.py, walk_common.py, main_walk_terrain.py, run_tests.py  <- yeni
 
 ONERILEN SIRA  (her adim bir oncekini dogrular)
 -----------------------------------------------
@@ -38,7 +38,7 @@ OLCULEN SONUCLAR  (gercek mesh'ler, robot 2.99 kg, MuJoCo 4.0.1, 24 adim, plan 0
     rough 1.0, 6 farkli arazi : 6/6 yurudu (0.63-0.69 m)
     rough 1.5, 3 farkli arazi : 2/3 yurudu, ayaklar kayiyor (0.57-0.60 m)
     rough 2.0                 : dustu
-    --blind (rough 1.0)       : yurudu ama 0.58 m; erken temas da kapatilirsa dustu
+    --blind (rough 1.0)       : yurudu ama 0.58 m (erken temas da kapaliyken 0.61 m)
     --no-slope (rough 1.0)    : yurudu ama 0.56 m (egime uyum mesafeyi artiriyor)
     itme (0.1 s), duz zemin   : yanal +20 N / -11 N, ileri +-10 N dayandi;
                                 yanal -14 N ve ileri 14 N dustu
@@ -69,8 +69,8 @@ try:
 except ImportError:
     sys.exit("mujoco kurulu degil:  pip install mujoco")
 
-# main_walk.py'deki yardimcilar aynen kullaniliyor (kopyalamamak icin import)
-from main_walk import (open_video_writer, write_frame, close_video, draw_push,
+# main_walk.py'deki yardimcilarin birebir kopyasi (bkz. walk_common.py)
+from walk_common import (open_video_writer, write_frame, close_video, draw_push,
                        measured_com_state, lowest_point_of_feet,
                        measure_ankle_height, JOINT_ORDER, VIEW_DT)
 from kinematic_mesh import BODY_REF_OFFSET, MAX_REACH, Q_MIN, Q_MAX, ankle_center_fk
