@@ -1,0 +1,36 @@
+import numpy as np
+import scipy.linalg as linalg
+
+
+
+
+def init_preview_control(dt, z_c, N_preview):
+    g = 9.81
+    A = np.array([[1.0, dt, (dt ** 2) / 2.0],
+                  [0.0, 1.0, dt],
+                  [0.0, 0.0, 1.0]])
+    B = np.array([[(dt ** 3) / 6.0], [(dt ** 2) / 2.0], [dt]])
+    C = np.array([[1.0, 0.0, -z_c / g]])
+
+    A_tilde = np.block([[1.0, C @ A],
+                        [np.zeros((3, 1)), A]])
+    B_tilde = np.block([[C @ B], [B]])
+
+    Q = np.zeros((4, 4))
+    Q[0, 0] = 1e6
+    R = np.array([[1.0]])
+
+    P = linalg.solve_discrete_are(A_tilde, B_tilde, Q, R)
+    K = np.linalg.inv(R + B_tilde.T @ P @ B_tilde) @ (B_tilde.T @ P @ A_tilde)
+    Ks = K[0, 0]
+    Kx = K[0, 1:4]
+
+    Ac_tilde = A_tilde - B_tilde @ K
+    F_preview = np.zeros(N_preview)
+    X_tilde = -Ac_tilde.T @ P @ np.block([[np.array([[1.0]])],
+                                          [np.zeros((3, 1))]])
+    for i in range(N_preview):
+        F_preview[i] = (np.linalg.inv(R + B_tilde.T @ P @ B_tilde) @ B_tilde.T @ X_tilde)[0, 0]
+        X_tilde = Ac_tilde.T @ X_tilde
+
+    return Ks, Kx, F_preview, A, B.flatten(), C

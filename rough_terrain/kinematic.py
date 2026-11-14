@@ -1,0 +1,43 @@
+import numpy as np
+import scipy.linalg as linalg
+import math
+
+
+
+
+
+#IK Module
+def Rroll(q):
+    c, s = math.cos(q), math.sin(q)
+    return np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
+
+
+def Rpitch(q):
+    c, s = math.cos(q), math.sin(q)
+    return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]])
+
+
+def IK_leg(Body_p, Body_R, D, A_leg, B_leg, Foot_p, Foot_R):
+    hip_offset = Body_R @ np.array([0, D, 0])
+    r = Foot_R.T @ (Body_p + hip_offset - Foot_p)
+    C_len = np.linalg.norm(r)
+
+    c5 = (C_len ** 2 - A_leg ** 2 - B_leg ** 2) / (2.0 * A_leg * B_leg)
+    c5 = np.clip(c5, -1.0, 1.0)
+    q5 = math.acos(c5)
+
+    q6a = math.asin(np.clip((A_leg / C_len) * math.sin(np.pi - q5), -1.0, 1.0))
+    q7 = math.atan2(r[1], r[2])
+    if q7 > math.pi / 2:
+        q7 -= math.pi
+    elif q7 < -math.pi / 2:
+        q7 += math.pi
+    q6 = -math.atan2(r[0], np.sign(r[2]) * math.sqrt(r[1] ** 2 + r[2] ** 2)) - q6a
+
+    R_mat = Body_R.T @ Foot_R @ Rroll(-q7) @ Rpitch(-q6 - q5)
+    q2 = math.atan2(-R_mat[0, 1], R_mat[1, 1])
+    cz, sz = math.cos(q2), math.sin(q2)
+    q3 = math.atan2(R_mat[2, 1], -R_mat[0, 1] * sz + R_mat[1, 1] * cz)
+    q4 = math.atan2(-R_mat[2, 0], R_mat[2, 2])
+
+    return [q2, q3, q4, q5, q6, q7]
