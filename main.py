@@ -227,7 +227,6 @@ def main():
     t_wall = time.perf_counter()
     exit_reason = "time limit reached"
     next_sync = 0.0
-    arrow_alpha = 0.0   # defined before the first video frame (--record with --push)
 
     try:
         while robot.time < sim.max_time:
